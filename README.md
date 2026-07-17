@@ -15,9 +15,13 @@ Save images into an `images/` folder in the project root so they render on GitHu
 
 ## The Problem
 
-Uganda hosts approximately **1.8 million refugees and asylum-seekers** — the largest refugee
-population in Africa — with the majority coming from **South Sudan (~55%) and the
-Democratic Republic of the Congo (~31%)** ([UNHCR, 2024](https://www.unhcr.org/where-we-work/countries/uganda)).
+Uganda hosts **nearly 2 million refugees and asylum-seekers** — the largest refugee
+population in Africa, and still growing. By October 2025, the total stood at approximately
+1.95 million ([Wikipedia, citing UNHCR/OPM data](https://en.wikipedia.org/wiki/Refugees_in_Uganda)),
+and UNHCR has reported an average of **600 new arrivals per day** from Sudan, South Sudan,
+and the DRC ([UN press briefing, 2025](https://press.un.org/en/uganda)). The majority come
+from **South Sudan (~55%) and the Democratic Republic of the Congo (~31%)**
+([UNHCR](https://www.unhcr.org/where-we-work/countries/uganda)).
 Alongside local Ugandan students, many of these students study a curriculum delivered
 entirely in English, which is often not their first language. Struggling with the language
 of instruction can mean struggling with the subject itself, even when the student
