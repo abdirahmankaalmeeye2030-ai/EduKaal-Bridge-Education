@@ -35,23 +35,17 @@ if os.path.exists(WINDOWS_TESSERACT_PATH):
     pytesseract.pytesseract.tesseract_cmd = WINDOWS_TESSERACT_PATH
 
     # --- Light/Dark mode toggle ---
-if "dark_mode" not in st.session_state:
-    st.session_state.dark_mode = True  # default to dark
-
-def toggle_theme():
-    st.session_state.dark_mode = not st.session_state.dark_mode
-
-with st.sidebar:
-    st.button(
-        "🌙 Dark Mode" if not st.session_state.dark_mode else "☀️ Light Mode",
-        on_click=toggle_theme,
-        use_container_width=True,
-    )
 
 if st.session_state.dark_mode:
-    bg_color, text_color, card_bg = "#0e1117", "#fafafa", "#1c1f26"
+    bg_color = "#0e1117"
+    text_color = "#fafafa"
+    card_bg = "#1c1f26"
+    border_color = "#3a3f4b"
 else:
-    bg_color, text_color, card_bg = "#ffffff", "#111111", "#f0f2f6"
+    bg_color = "#f7f7f9"
+    text_color = "#1a1a1a"
+    card_bg = "#ffffff"
+    border_color = "#c9ccd1"
 
 st.markdown(
     f"""
@@ -60,9 +54,31 @@ st.markdown(
         background-color: {bg_color};
         color: {text_color};
     }}
-    .stTextArea textarea, .stSelectbox div[data-baseweb="select"] {{
+    /* Headers, labels, captions, paragraph text */
+    h1, h2, h3, p, label, .stMarkdown, .stCaption, span {{
+        color: {text_color} !important;
+    }}
+    /* Text area + selectbox */
+    .stTextArea textarea, .stSelectbox div[data-baseweb="select"] > div {{
         background-color: {card_bg} !important;
         color: {text_color} !important;
+        border: 1px solid {border_color} !important;
+    }}
+    /* Placeholder text — needs its own rule, browsers ignore parent color for this */
+    .stTextArea textarea::placeholder {{
+        color: {text_color}99 !important;
+    }}
+    /* Table (vocabulary) */
+    .stTable table, .stTable th, .stTable td {{
+        background-color: {card_bg} !important;
+        color: {text_color} !important;
+        border-color: {border_color} !important;
+    }}
+    /* Popover (the + upload button) */
+    div[data-testid="stPopover"] button {{
+        background-color: {card_bg} !important;
+        color: {text_color} !important;
+        border: 1px solid {border_color} !important;
     }}
     </style>
     """,
