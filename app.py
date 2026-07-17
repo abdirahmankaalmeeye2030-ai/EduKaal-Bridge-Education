@@ -27,14 +27,27 @@ st.set_page_config(page_title="EduKaal", page_icon="📚")
 
 # --- Tesseract setup (OCR for uploaded photos) ---
 # On Windows, Tesseract isn't on PATH by default, so we point to it
-# explicitly. On Mac/Linux (e.g. `brew install tesseract` or
-# `apt install tesseract-ocr`), it's usually already on PATH and this
-# line is unnecessary — only set it if the default path exists.
+# explicitly. On Mac/Linux (e.g. Streamlit Cloud, `apt install
+# tesseract-ocr` via packages.txt), it's already on PATH and this is
+# skipped automatically since the path won't exist there.
 WINDOWS_TESSERACT_PATH = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 if os.path.exists(WINDOWS_TESSERACT_PATH):
     pytesseract.pytesseract.tesseract_cmd = WINDOWS_TESSERACT_PATH
 
-    # --- Light/Dark mode toggle ---
+# --- Light/Dark mode toggle ---
+# This MUST run before anything reads st.session_state.dark_mode.
+if "dark_mode" not in st.session_state:
+    st.session_state.dark_mode = True  # default to dark
+
+def toggle_theme():
+    st.session_state.dark_mode = not st.session_state.dark_mode
+
+with st.sidebar:
+    st.button(
+        "🌙 Dark Mode" if not st.session_state.dark_mode else "☀️ Light Mode",
+        on_click=toggle_theme,
+        use_container_width=True,
+    )
 
 if st.session_state.dark_mode:
     bg_color = "#0e1117"
@@ -54,27 +67,22 @@ st.markdown(
         background-color: {bg_color};
         color: {text_color};
     }}
-    /* Headers, labels, captions, paragraph text */
     h1, h2, h3, p, label, .stMarkdown, .stCaption, span {{
         color: {text_color} !important;
     }}
-    /* Text area + selectbox */
     .stTextArea textarea, .stSelectbox div[data-baseweb="select"] > div {{
         background-color: {card_bg} !important;
         color: {text_color} !important;
         border: 1px solid {border_color} !important;
     }}
-    /* Placeholder text — needs its own rule, browsers ignore parent color for this */
     .stTextArea textarea::placeholder {{
         color: {text_color}99 !important;
     }}
-    /* Table (vocabulary) */
     .stTable table, .stTable th, .stTable td {{
         background-color: {card_bg} !important;
         color: {text_color} !important;
         border-color: {border_color} !important;
     }}
-    /* Popover (the + upload button) */
     div[data-testid="stPopover"] button {{
         background-color: {card_bg} !important;
         color: {text_color} !important;
@@ -94,9 +102,6 @@ MIME_IMAGES = ("image/png", "image/jpeg")
 st.title("📚 EduKaal")
 st.caption("Refugee & Local Student Education Bridge — paste your lesson, learn in your language.")
 
-# `pending_questions` tracks whether we're waiting on the student to
-# answer a quiz. If set, the next submission is treated as MODE 2
-# (an answer to score) instead of MODE 1 (a new lesson).
 if "pending_questions" not in st.session_state:
     st.session_state.pending_questions = None
 
@@ -107,32 +112,19 @@ language = st.sidebar.selectbox(
 
 
 def extract_from_pdf(file) -> str:
-    """Return all text found in a PDF. Empty string if it's a scanned
-    image with no embedded text layer."""
     reader = PdfReader(file)
     return "\n".join(page.extract_text() or "" for page in reader.pages).strip()
 
 
 def extract_from_docx(file) -> str:
-    """Return all paragraph text from a Word document."""
     doc = Document(file)
     return "\n".join(p.text for p in doc.paragraphs).strip()
 
 
 def extract_from_image(file) -> str:
-    """Run OCR on an uploaded photo and return any text found.
-    Diagrams, hand-drawn figures, and low-quality photos may yield
-    little or nothing — this is a Tesseract limitation, not a bug."""
     image = Image.open(file)
     return pytesseract.image_to_string(image).strip()
 
-
-# --- Uploader lives inside a popover, but Streamlit needs the widget
-# defined once, at a fixed point in the script. We define it here
-# (logic order) and render the button + textbox visually below it
-# by placing the popover UI after the textbox in the layout — the
-# widget itself just needs to be created before we read its value.
-upload_popover_slot = st.container()
 
 extracted_text = ""
 extraction_error = None
@@ -173,7 +165,6 @@ student_input = st.text_area(
     key="main_input",
 )
 
-# --- Upload (➕ popover) + submit button, rendered below the textbox ---
 col_upload, col_submit = st.columns([0.15, 0.85])
 
 with col_upload:
@@ -188,14 +179,11 @@ with col_upload:
             "📌 Works best with text-based lessons. Diagrams and hand-drawn "
             "figures may not extract correctly — type or paste instead."
         )
-        # Cache the upload so it's available on the NEXT rerun, at the
-        # top of the script, before this widget is drawn again.
         st.session_state["_last_upload"] = new_upload
 
 with col_submit:
     ask_clicked = st.button("Ask the Tutor", type="primary")
 
-# --- Send to the tutor and render the response ---
 if ask_clicked and student_input.strip():
     with st.spinner("The tutor is thinking..."):
         if st.session_state.pending_questions:
