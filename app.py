@@ -34,6 +34,41 @@ WINDOWS_TESSERACT_PATH = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 if os.path.exists(WINDOWS_TESSERACT_PATH):
     pytesseract.pytesseract.tesseract_cmd = WINDOWS_TESSERACT_PATH
 
+    # --- Light/Dark mode toggle ---
+if "dark_mode" not in st.session_state:
+    st.session_state.dark_mode = True  # default to dark
+
+def toggle_theme():
+    st.session_state.dark_mode = not st.session_state.dark_mode
+
+with st.sidebar:
+    st.button(
+        "🌙 Dark Mode" if not st.session_state.dark_mode else "☀️ Light Mode",
+        on_click=toggle_theme,
+        use_container_width=True,
+    )
+
+if st.session_state.dark_mode:
+    bg_color, text_color, card_bg = "#0e1117", "#fafafa", "#1c1f26"
+else:
+    bg_color, text_color, card_bg = "#ffffff", "#111111", "#f0f2f6"
+
+st.markdown(
+    f"""
+    <style>
+    .stApp {{
+        background-color: {bg_color};
+        color: {text_color};
+    }}
+    .stTextArea textarea, .stSelectbox div[data-baseweb="select"] {{
+        background-color: {card_bg} !important;
+        color: {text_color} !important;
+    }}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # MIME types we accept from st.file_uploader, named for clarity.
 MIME_PDF = "application/pdf"
 MIME_TXT = "text/plain"
