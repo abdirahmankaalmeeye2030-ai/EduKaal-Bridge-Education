@@ -8,9 +8,13 @@
 
 ## The Problem
 
-Uganda hosts approximately **1.8 million refugees and asylum-seekers** — the largest
-refugee population in Africa — with the majority coming from **South Sudan (~55%)** and
-the **Democratic Republic of the Congo (~31%)** ([UNHCR, 2024](https://www.unhcr.org/where-we-work/countries/uganda)).
+Uganda hosts **nearly 2 million refugees and asylum-seekers** — the largest refugee
+population in Africa, and still growing. By October 2025, the total stood at approximately
+1.95 million ([Wikipedia, citing UNHCR/OPM data](https://en.wikipedia.org/wiki/Refugees_in_Uganda)),
+and UNHCR has reported an average of **600 new arrivals per day** from Sudan, South Sudan,
+and the DRC ([UN press briefing, 2025](https://press.un.org/en/uganda)). The majority come
+from **South Sudan (~55%)** and the **Democratic Republic of the Congo (~31%)**
+([UNHCR](https://www.unhcr.org/where-we-work/countries/uganda)).
 
 Alongside local Ugandan students, many of these students are taught an entirely
 English-medium curriculum. For a student whose first language is Af-Somali, Kiswahili,
@@ -139,6 +143,6 @@ EduKaal demonstrates that a small, efficient open model like Gemma 4 26B A4B can
 genuinely useful, mother-tongue academic support — provided its language capabilities are
 tested rigorously rather than assumed, and its behavior is constrained by a carefully
 designed prompt contract rather than left to improvisation. For the population it's built
-for — Uganda's 1.8 million refugees and the local students alongside them — even a
+for — Uganda's nearly 2 million refugees and the local students alongside them — even a
 narrowly-scoped, honestly-evaluated tool can meaningfully close the gap between
 understanding a subject and being able to demonstrate that understanding in English.
