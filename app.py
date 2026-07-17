@@ -27,9 +27,9 @@ st.set_page_config(page_title="EduKaal", page_icon="📚")
 
 # --- Tesseract setup (OCR for uploaded photos) ---
 # On Windows, Tesseract isn't on PATH by default, so we point to it
-# explicitly. On Mac/Linux (e.g. Streamlit Cloud, `apt install
-# tesseract-ocr` via packages.txt), it's already on PATH and this is
-# skipped automatically since the path won't exist there.
+# explicitly. On Streamlit Cloud / Linux (via packages.txt), it's
+# already on PATH and this is skipped automatically since the path
+# won't exist there.
 WINDOWS_TESSERACT_PATH = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 if os.path.exists(WINDOWS_TESSERACT_PATH):
     pytesseract.pytesseract.tesseract_cmd = WINDOWS_TESSERACT_PATH
@@ -67,9 +67,18 @@ st.markdown(
         background-color: {bg_color};
         color: {text_color};
     }}
+    /* Sidebar — separate container, needs its own rules */
+    section[data-testid="stSidebar"] {{
+        background-color: {card_bg} !important;
+    }}
+    section[data-testid="stSidebar"] * {{
+        color: {text_color} !important;
+    }}
+    /* Headers, labels, captions, paragraph text (main area) */
     h1, h2, h3, p, label, .stMarkdown, .stCaption, span {{
         color: {text_color} !important;
     }}
+    /* Text area + selectbox */
     .stTextArea textarea, .stSelectbox div[data-baseweb="select"] > div {{
         background-color: {card_bg} !important;
         color: {text_color} !important;
@@ -78,15 +87,24 @@ st.markdown(
     .stTextArea textarea::placeholder {{
         color: {text_color}99 !important;
     }}
+    /* Table (vocabulary) */
     .stTable table, .stTable th, .stTable td {{
         background-color: {card_bg} !important;
         color: {text_color} !important;
         border-color: {border_color} !important;
     }}
-    div[data-testid="stPopover"] button {{
+    /* Popover (the + upload button) and sidebar toggle button */
+    div[data-testid="stPopover"] button, section[data-testid="stSidebar"] button {{
         background-color: {card_bg} !important;
         color: {text_color} !important;
         border: 1px solid {border_color} !important;
+    }}
+    /* Dropdown menu options (selectbox popup list) */
+    ul[data-baseweb="menu"] {{
+        background-color: {card_bg} !important;
+    }}
+    ul[data-baseweb="menu"] li {{
+        color: {text_color} !important;
     }}
     </style>
     """,
@@ -112,16 +130,22 @@ language = st.sidebar.selectbox(
 
 
 def extract_from_pdf(file) -> str:
+    """Return all text found in a PDF. Empty string if it's a scanned
+    image with no embedded text layer."""
     reader = PdfReader(file)
     return "\n".join(page.extract_text() or "" for page in reader.pages).strip()
 
 
 def extract_from_docx(file) -> str:
+    """Return all paragraph text from a Word document."""
     doc = Document(file)
     return "\n".join(p.text for p in doc.paragraphs).strip()
 
 
 def extract_from_image(file) -> str:
+    """Run OCR on an uploaded photo and return any text found.
+    Diagrams, hand-drawn figures, and low-quality photos may yield
+    little or nothing — this is a Tesseract limitation, not a bug."""
     image = Image.open(file)
     return pytesseract.image_to_string(image).strip()
 
