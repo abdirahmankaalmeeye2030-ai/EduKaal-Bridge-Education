@@ -17,8 +17,11 @@ Flow:
    score and feedback (MODE 2).
 5. After every submission, the input box is cleared automatically so
    the student can type their next answer without deleting old text
-   themselves. The tutor's last response is kept in session state so
-   it stays visible across that clearing rerun.
+   themselves. Because Streamlit forbids writing to a widget's
+   session_state key after that widget has been created in the same
+   run, clearing is done via a "clear_input_next_run" flag that is
+   checked at the very top of the script, before the text_area widget
+   is instantiated.
 
 See agent.py for the Gemma API call and JSON parsing, and
 system_instruction.txt for the tutor's behavior rules.
@@ -33,6 +36,14 @@ import pytesseract
 from agent import get_tutor_response
 
 st.set_page_config(page_title="EduKaal", page_icon="📚")
+
+# --- Clear the input box from a PREVIOUS run, if flagged ---
+# This must run before the text_area widget below is created, since
+# Streamlit blocks writing to a widget's session_state key after that
+# widget already exists in the current script run.
+if st.session_state.get("clear_input_next_run"):
+    st.session_state["main_input"] = ""
+    st.session_state["clear_input_next_run"] = False
 
 # --- Tesseract setup (OCR for uploaded photos) ---
 WINDOWS_TESSERACT_PATH = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
@@ -291,5 +302,5 @@ if ask_clicked and student_input.strip():
         st.session_state.pending_questions = None
 
     st.session_state["_last_upload"] = None
-    st.session_state.main_input = ""
+    st.session_state["clear_input_next_run"] = True
     st.rerun()
