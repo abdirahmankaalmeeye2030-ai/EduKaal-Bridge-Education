@@ -20,6 +20,29 @@ vocabulary they need for exams — using Google's Gemma model.
 
 *Tested on mobile — real student feedback and understanding score, live.*
 
+
+## The Story Behind EduKaal
+
+Abdi is 10 years old. Back home, he was the top of his class — solving problems before
+the teacher finished the question, reading every book in his village school twice.
+
+Then his family fled to Uganda.
+
+In his first science lesson, the teacher explained the water cycle — a concept Abdi
+already understood. But she spoke only English, and he understood almost none of it. He
+went home certain of something untrue: that he wasn't clever anymore.
+
+Abdi didn't lose his mind for learning. He lost the language to prove it.
+
+EduKaal exists for every Abdi. *(Abdi is a composite, hypothetical example representing
+a common experience — not a specific individual.)*
+
+## What "EduKaal" Means
+
+**"Edu"** for education, and **"Kaal"** from the Somali word *Kaalmeeye* — helper.
+EduKaal means "the education helper."
+
+
 ## The Problem
 
 Uganda hosts **nearly 2 million refugees and asylum-seekers** — the largest refugee
