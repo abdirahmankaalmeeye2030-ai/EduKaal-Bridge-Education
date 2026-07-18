@@ -1,5 +1,5 @@
 """
-Streamlit UI for the Refugee & Local Student Education Bridge.
+Streamlit UI for the Refugee & Local Student Education Bridge (EduKaal).
 
 Layout: student intro form on first load, then response area on top
 (like a chat history), input box and controls at the bottom.
@@ -22,6 +22,8 @@ Flow:
    run, clearing is done via a "clear_input_next_run" flag that is
    checked at the very top of the script, before the text_area widget
    is instantiated.
+6. A "New Lesson" button lets the student reset the current lesson
+   and quiz state at any time (e.g. to try a different language).
 
 See agent.py for the Gemma API call and JSON parsing, and
 system_instruction.txt for the tutor's behavior rules.
@@ -46,6 +48,10 @@ if st.session_state.get("clear_input_next_run"):
     st.session_state["clear_input_next_run"] = False
 
 # --- Tesseract setup (OCR for uploaded photos) ---
+# On Windows, Tesseract isn't on PATH by default, so we point to it
+# explicitly. On Streamlit Cloud / Linux (via packages.txt), it's
+# already on PATH and this is skipped automatically since the path
+# won't exist there.
 WINDOWS_TESSERACT_PATH = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 if os.path.exists(WINDOWS_TESSERACT_PATH):
     pytesseract.pytesseract.tesseract_cmd = WINDOWS_TESSERACT_PATH
@@ -157,16 +163,22 @@ st.caption(
 
 
 def extract_from_pdf(file) -> str:
+    """Return all text found in a PDF. Empty string if it's a scanned
+    image with no embedded text layer."""
     reader = PdfReader(file)
     return "\n".join(page.extract_text() or "" for page in reader.pages).strip()
 
 
 def extract_from_docx(file) -> str:
+    """Return all paragraph text from a Word document."""
     doc = Document(file)
     return "\n".join(p.text for p in doc.paragraphs).strip()
 
 
 def extract_from_image(file) -> str:
+    """Run OCR on an uploaded photo and return any text found.
+    Diagrams, hand-drawn figures, and low-quality photos may yield
+    little or nothing — this is a Tesseract limitation, not a bug."""
     image = Image.open(file)
     return pytesseract.image_to_string(image).strip()
 
@@ -257,7 +269,7 @@ student_input = st.text_area(
     key="main_input",
 )
 
-col_upload, col_submit = st.columns([0.15, 0.85])
+col_upload, col_submit, col_reset = st.columns([0.15, 0.65, 0.2])
 
 with col_upload:
     with st.popover("➕"):
@@ -276,18 +288,34 @@ with col_upload:
 with col_submit:
     ask_clicked = st.button("Ask the Tutor", type="primary")
 
+with col_reset:
+    if st.button("🔄 New Lesson"):
+        st.session_state.last_result = None
+        st.session_state.pending_questions = None
+        st.session_state["_last_upload"] = None
+        st.session_state["clear_input_next_run"] = True
+        st.rerun()
+
+# --- Send to the tutor, store the response, then clear the box ---
 if ask_clicked and student_input.strip():
     with st.spinner("The tutor is thinking..."):
+        subjects_text = ", ".join(profile["subjects"]) if profile["subjects"] else "not specified"
+        student_context = (
+            f"[Student: {profile['nickname']}, age range {profile['age_range']}, "
+            f"studying: {subjects_text}]\n\n"
+        )
+
         if st.session_state.pending_questions:
             questions_text = "\n".join(
                 f"{i+1}. {q}" for i, q in enumerate(st.session_state.pending_questions)
             )
             message = (
-                f"Previous questions:\n{questions_text}\n\n"
-                f"Student's answers:\n{student_input}"
+                student_context
+                + f"Previous questions:\n{questions_text}\n\n"
+                + f"Student's answers:\n{student_input}"
             )
         else:
-            message = student_input
+            message = student_context + student_input
 
         try:
             new_result = get_tutor_response(message, language)
