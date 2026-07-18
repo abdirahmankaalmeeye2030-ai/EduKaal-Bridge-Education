@@ -1,15 +1,24 @@
 """
 Streamlit UI for the Refugee & Local Student Education Bridge.
 
+Layout: student intro form on first load, then response area on top
+(like a chat history), input box and controls at the bottom.
+
 Flow:
-1. Student picks a target language and either pastes a lesson or
-   uploads a file (PDF, Word, image, or plain text).
-2. The app sends the lesson to Gemma (via agent.py) and displays an
+1. On first visit, the student enters a nickname, age range, and
+   subjects (session-only — not saved after the tab closes).
+2. The student pastes a lesson or uploads a file (PDF, Word, image,
+   or plain text).
+3. The app sends the lesson to Gemma (via agent.py) and displays an
    explanation, vocabulary table, and quiz questions (MODE 1).
-3. When the student submits answers to those questions, the app
+4. When the student submits answers to those questions, the app
    detects a "pending" quiz in session state and sends the previous
    questions + the student's answers back to Gemma, which returns a
    score and feedback (MODE 2).
+5. After every submission, the input box is cleared automatically so
+   the student can type their next answer without deleting old text
+   themselves. The tutor's last response is kept in session state so
+   it stays visible across that clearing rerun.
 
 See agent.py for the Gemma API call and JSON parsing, and
 system_instruction.txt for the tutor's behavior rules.
@@ -26,18 +35,13 @@ from agent import get_tutor_response
 st.set_page_config(page_title="EduKaal", page_icon="📚")
 
 # --- Tesseract setup (OCR for uploaded photos) ---
-# On Windows, Tesseract isn't on PATH by default, so we point to it
-# explicitly. On Streamlit Cloud / Linux (via packages.txt), it's
-# already on PATH and this is skipped automatically since the path
-# won't exist there.
 WINDOWS_TESSERACT_PATH = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 if os.path.exists(WINDOWS_TESSERACT_PATH):
     pytesseract.pytesseract.tesseract_cmd = WINDOWS_TESSERACT_PATH
 
 # --- Light/Dark mode toggle ---
-# This MUST run before anything reads st.session_state.dark_mode.
 if "dark_mode" not in st.session_state:
-    st.session_state.dark_mode = True  # default to dark
+    st.session_state.dark_mode = True
 
 def toggle_theme():
     st.session_state.dark_mode = not st.session_state.dark_mode
@@ -50,68 +54,42 @@ with st.sidebar:
     )
 
 if st.session_state.dark_mode:
-    bg_color = "#0e1117"
-    text_color = "#fafafa"
-    card_bg = "#1c1f26"
-    border_color = "#3a3f4b"
+    bg_color, text_color, card_bg, border_color = "#0e1117", "#fafafa", "#1c1f26", "#3a3f4b"
 else:
-    bg_color = "#f7f7f9"
-    text_color = "#1a1a1a"
-    card_bg = "#ffffff"
-    border_color = "#c9ccd1"
+    bg_color, text_color, card_bg, border_color = "#f7f7f9", "#1a1a1a", "#ffffff", "#c9ccd1"
 
 st.markdown(
     f"""
     <style>
-    .stApp {{
-        background-color: {bg_color};
-        color: {text_color};
-    }}
-    /* Sidebar — separate container, needs its own rules */
-    section[data-testid="stSidebar"] {{
-        background-color: {card_bg} !important;
-    }}
-    section[data-testid="stSidebar"] * {{
-        color: {text_color} !important;
-    }}
-    /* Headers, labels, captions, paragraph text (main area) */
-    h1, h2, h3, p, label, .stMarkdown, .stCaption, span {{
-        color: {text_color} !important;
-    }}
-    /* Text area + selectbox */
-    .stTextArea textarea, .stSelectbox div[data-baseweb="select"] > div {{
+    .stApp {{ background-color: {bg_color}; color: {text_color}; }}
+    section[data-testid="stSidebar"] {{ background-color: {card_bg} !important; }}
+    section[data-testid="stSidebar"] * {{ color: {text_color} !important; }}
+    h1, h2, h3, p, label, .stMarkdown, .stCaption, span {{ color: {text_color} !important; }}
+    .stTextArea textarea, .stSelectbox div[data-baseweb="select"] > div,
+    .stTextInput input {{
         background-color: {card_bg} !important;
         color: {text_color} !important;
         border: 1px solid {border_color} !important;
     }}
-    .stTextArea textarea::placeholder {{
-        color: {text_color}99 !important;
-    }}
-    /* Table (vocabulary) */
+    .stTextArea textarea::placeholder {{ color: {text_color}99 !important; }}
     .stTable table, .stTable th, .stTable td {{
         background-color: {card_bg} !important;
         color: {text_color} !important;
         border-color: {border_color} !important;
     }}
-    /* Popover (the + upload button) and sidebar toggle button */
     div[data-testid="stPopover"] button, section[data-testid="stSidebar"] button {{
         background-color: {card_bg} !important;
         color: {text_color} !important;
         border: 1px solid {border_color} !important;
     }}
-    /* Dropdown menu options (selectbox popup list) */
-    ul[data-baseweb="menu"] {{
-        background-color: {card_bg} !important;
-    }}
-    ul[data-baseweb="menu"] li {{
-        color: {text_color} !important;
-    }}
+    ul[data-baseweb="menu"] {{ background-color: {card_bg} !important; }}
+    ul[data-baseweb="menu"] li {{ color: {text_color} !important; }}
+    hr {{ border-color: {border_color}; }}
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-# MIME types we accept from st.file_uploader, named for clarity.
 MIME_PDF = "application/pdf"
 MIME_TXT = "text/plain"
 MIME_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -123,33 +101,112 @@ st.caption("Refugee & Local Student Education Bridge — paste your lesson, lear
 if "pending_questions" not in st.session_state:
     st.session_state.pending_questions = None
 
+if "last_result" not in st.session_state:
+    st.session_state.last_result = None
+
 language = st.sidebar.selectbox(
     "Choose your language / Dooro luqaddaada",
     ["Af-Somali", "Kiswahili", "Arabic", "Luganda"],
 )
 
+# --- Student profile (session-only — resets when the browser tab closes) ---
+if "student_profile" not in st.session_state:
+    st.session_state.student_profile = None
+
+if st.session_state.student_profile is None:
+    st.subheader("👋 Let's get started")
+    st.caption(
+        "This just helps the tutor speak to you personally during this visit. "
+        "Please don't share your last name or exact location."
+    )
+    with st.form("profile_form"):
+        nickname = st.text_input("First name or nickname")
+        age_range = st.selectbox("Age range", ["6-9", "10-12", "13-15", "16-18"])
+        subjects = st.multiselect(
+            "Subjects you're learning",
+            ["Maths", "Science", "Social Studies", "English"],
+        )
+        submitted = st.form_submit_button("Start Learning")
+
+        if submitted and nickname.strip():
+            st.session_state.student_profile = {
+                "nickname": nickname.strip(),
+                "age_range": age_range,
+                "subjects": subjects,
+            }
+            st.rerun()
+
+    st.stop()  # don't show the rest of the app until the profile is filled in
+
+profile = st.session_state.student_profile
+st.caption(
+    f"👤 {profile['nickname']} · {profile['age_range']} · "
+    f"{', '.join(profile['subjects']) or 'no subjects selected'}"
+)
+
 
 def extract_from_pdf(file) -> str:
-    """Return all text found in a PDF. Empty string if it's a scanned
-    image with no embedded text layer."""
     reader = PdfReader(file)
     return "\n".join(page.extract_text() or "" for page in reader.pages).strip()
 
 
 def extract_from_docx(file) -> str:
-    """Return all paragraph text from a Word document."""
     doc = Document(file)
     return "\n".join(p.text for p in doc.paragraphs).strip()
 
 
 def extract_from_image(file) -> str:
-    """Run OCR on an uploaded photo and return any text found.
-    Diagrams, hand-drawn figures, and low-quality photos may yield
-    little or nothing — this is a Tesseract limitation, not a bug."""
     image = Image.open(file)
     return pytesseract.image_to_string(image).strip()
 
 
+# --- RESPONSE AREA (top) — shows the tutor's most recent reply ---
+st.divider()
+result = st.session_state.last_result
+
+if result is None:
+    st.caption("Your lesson explanation, vocabulary, and quiz will appear here.")
+
+elif result["mode"] == "lesson":
+    st.subheader("📖 Explanation")
+    st.write(result["explanation_native"])
+
+    st.subheader("🔤 Vocabulary")
+    st.table(
+        [
+            {
+                "English": v["word"],
+                language: v["word_native"],
+                "Meaning": v["definition"],
+                "Example": v["example_sentence"],
+                f"Example ({language})": v["example_native"],
+            }
+            for v in result["vocabulary_list"]
+        ]
+    )
+
+    st.subheader("✍️ Quiz")
+    for i, q in enumerate(result["evaluation_questions"], 1):
+        st.write(f"**{i}.** {q}")
+    st.info("Type your answers in the box below and press the button again.")
+
+elif result["mode"] == "feedback":
+    score = result.get("understanding_score")
+    if score is not None:
+        st.metric("Understanding Score", f"{score}/10")
+    st.subheader("💬 Feedback")
+    st.write(result["feedback_native"])
+    if result.get("retry_suggestion"):
+        st.warning(f"Try again: {result['retry_suggestion']}")
+
+else:
+    st.error(result["message"])
+    with st.expander("Show raw output (for debugging)"):
+        st.code(result.get("raw_output", ""))
+
+st.divider()
+
+# --- INPUT AREA (bottom) — like ChatGPT/Claude ---
 extracted_text = ""
 extraction_error = None
 uploaded_file = st.session_state.get("_last_upload")
@@ -185,7 +242,7 @@ if uploaded_file is not None:
 student_input = st.text_area(
     "Paste your lesson text or your answers here:",
     value=extracted_text,
-    height=180,
+    height=150,
     key="main_input",
 )
 
@@ -222,48 +279,17 @@ if ask_clicked and student_input.strip():
             message = student_input
 
         try:
-            result = get_tutor_response(message, language)
+            new_result = get_tutor_response(message, language)
         except Exception as e:
             st.error(f"Could not reach the tutor: {e}")
-            result = None
+            new_result = None
 
-    if result and result["mode"] == "lesson":
-        st.session_state.pending_questions = result["evaluation_questions"]
-
-        st.subheader("📖 Explanation")
-        st.write(result["explanation_native"])
-
-        st.subheader("🔤 Vocabulary")
-        st.table(
-            [
-                {
-                    "English": v["word"],
-                    language: v["word_native"],
-                    "Meaning": v["definition"],
-                    "Example": v["example_sentence"],
-                    f"Example ({language})": v["example_native"],
-                }
-                for v in result["vocabulary_list"]
-            ]
-        )
-
-        st.subheader("✍️ Quiz")
-        for i, q in enumerate(result["evaluation_questions"], 1):
-            st.write(f"**{i}.** {q}")
-        st.info("Type your answers in the box above and press the button again.")
-
-    elif result and result["mode"] == "feedback":
+    st.session_state.last_result = new_result
+    if new_result and new_result["mode"] == "lesson":
+        st.session_state.pending_questions = new_result["evaluation_questions"]
+    elif new_result and new_result["mode"] == "feedback":
         st.session_state.pending_questions = None
 
-        score = result.get("understanding_score")
-        if score is not None:
-            st.metric("Understanding Score", f"{score}/10")
-        st.subheader("💬 Feedback")
-        st.write(result["feedback_native"])
-        if result.get("retry_suggestion"):
-            st.warning(f"Try again: {result['retry_suggestion']}")
-
-    elif result:
-        st.error(result["message"])
-        with st.expander("Show raw output (for debugging)"):
-            st.code(result.get("raw_output", ""))
+    st.session_state["_last_upload"] = None
+    st.session_state.main_input = ""
+    st.rerun()
