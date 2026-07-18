@@ -24,6 +24,11 @@ Flow:
    is instantiated.
 6. A "New Lesson" button lets the student reset the current lesson
    and quiz state at any time (e.g. to try a different language).
+7. Every response is saved to a session-only history list. Students
+   can click any past entry in the sidebar to revisit it without a
+   new Gemma call. This history does NOT persist after the browser
+   tab closes — true cross-visit history would require a database,
+   which is intentionally out of scope for now (see README/write-up).
 
 See agent.py for the Gemma API call and JSON parsing, and
 system_instruction.txt for the tutor's behavior rules.
@@ -40,18 +45,11 @@ from agent import get_tutor_response
 st.set_page_config(page_title="EduKaal", page_icon="📚")
 
 # --- Clear the input box from a PREVIOUS run, if flagged ---
-# This must run before the text_area widget below is created, since
-# Streamlit blocks writing to a widget's session_state key after that
-# widget already exists in the current script run.
 if st.session_state.get("clear_input_next_run"):
     st.session_state["main_input"] = ""
     st.session_state["clear_input_next_run"] = False
 
 # --- Tesseract setup (OCR for uploaded photos) ---
-# On Windows, Tesseract isn't on PATH by default, so we point to it
-# explicitly. On Streamlit Cloud / Linux (via packages.txt), it's
-# already on PATH and this is skipped automatically since the path
-# won't exist there.
 WINDOWS_TESSERACT_PATH = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 if os.path.exists(WINDOWS_TESSERACT_PATH):
     pytesseract.pytesseract.tesseract_cmd = WINDOWS_TESSERACT_PATH
@@ -121,10 +119,24 @@ if "pending_questions" not in st.session_state:
 if "last_result" not in st.session_state:
     st.session_state.last_result = None
 
+if "history" not in st.session_state:
+    st.session_state.history = []
+
 language = st.sidebar.selectbox(
     "Choose your language / Dooro luqaddaada",
     ["Af-Somali", "Kiswahili", "Arabic", "Luganda"],
 )
+
+# --- Session history (sidebar) — revisit earlier lessons this visit ---
+if st.session_state.history:
+    with st.sidebar:
+        st.divider()
+        st.caption("📜 This session's history")
+        for i, entry in enumerate(reversed(st.session_state.history)):
+            label = f"{entry['language']}: {entry['preview']}"
+            if st.button(label, key=f"history_{i}"):
+                st.session_state.last_result = entry["result"]
+                st.rerun()
 
 # --- Student profile (session-only — resets when the browser tab closes) ---
 if "student_profile" not in st.session_state:
@@ -153,7 +165,7 @@ if st.session_state.student_profile is None:
             }
             st.rerun()
 
-    st.stop()  # don't show the rest of the app until the profile is filled in
+    st.stop()
 
 profile = st.session_state.student_profile
 st.caption(
@@ -163,22 +175,16 @@ st.caption(
 
 
 def extract_from_pdf(file) -> str:
-    """Return all text found in a PDF. Empty string if it's a scanned
-    image with no embedded text layer."""
     reader = PdfReader(file)
     return "\n".join(page.extract_text() or "" for page in reader.pages).strip()
 
 
 def extract_from_docx(file) -> str:
-    """Return all paragraph text from a Word document."""
     doc = Document(file)
     return "\n".join(p.text for p in doc.paragraphs).strip()
 
 
 def extract_from_image(file) -> str:
-    """Run OCR on an uploaded photo and return any text found.
-    Diagrams, hand-drawn figures, and low-quality photos may yield
-    little or nothing — this is a Tesseract limitation, not a bug."""
     image = Image.open(file)
     return pytesseract.image_to_string(image).strip()
 
@@ -328,6 +334,15 @@ if ask_clicked and student_input.strip():
         st.session_state.pending_questions = new_result["evaluation_questions"]
     elif new_result and new_result["mode"] == "feedback":
         st.session_state.pending_questions = None
+
+    if new_result:
+        st.session_state.history.append(
+            {
+                "preview": student_input[:60] + ("..." if len(student_input) > 60 else ""),
+                "language": language,
+                "result": new_result,
+            }
+        )
 
     st.session_state["_last_upload"] = None
     st.session_state["clear_input_next_run"] = True
