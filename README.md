@@ -8,10 +8,17 @@ vocabulary they need for exams — using Google's Gemma model.
 
 ## Demo
 
-<!-- Add screenshots here once available, e.g.:
-![EduKaal Arabic lesson demo](images/edukaal-arabic-demo.png)
-![EduKaal vocabulary table](images/edukaal-vocab-table.png)
-Save images into an `images/` folder in the project root so they render on GitHub. -->
+![EduKaal Kiswahili lesson demo](images/edukaal-Kiswahili-demo.png)
+
+*Live Kiswahili lesson — explanation, vocabulary table, and quiz.*
+
+![EduKaal Af-Somali lesson demo](images/edukaal-Somali-demo.png)
+
+*Live Af-Somali lesson output.*
+
+![EduKaal mobile feedback](images/edukaal-mobile-feedback.jpeg)
+
+*Tested on mobile — real student feedback and understanding score, live.*
 
 ## The Problem
 
